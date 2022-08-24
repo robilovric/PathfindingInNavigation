@@ -8,6 +8,7 @@ import sys
 from PyQt5 import QtWebEngineWidgets, QtWidgets
 import MyDijkstra
 
+
 class Window(QtWidgets.QMainWindow):
     startMarkerCount = 0
     destMarkerCount = 0
@@ -34,12 +35,12 @@ class Window(QtWidgets.QMainWindow):
         self.destLonEdit = QtWidgets.QLineEdit()
         self.addStartMarkerBtn = QtWidgets.QPushButton(self.tr("Add start location"))
         self.addDestMarkerBtn = QtWidgets.QPushButton(self.tr("Add destination location"))
-        self.findPathButton = QtWidgets.QPushButton(self.tr("Visualize graph"))
+        self.findPathButton = QtWidgets.QPushButton(self.tr("Visualize path"))
         self.clearButton = QtWidgets.QPushButton(self.tr("Clear map"))
 
         self.addStartMarkerBtn.clicked.connect(self.AddStartButtonClicked)
         self.addDestMarkerBtn.clicked.connect(self.AddDestButtonClicked)
-        self.findPathButton.clicked.connect(self.get_graph)
+        self.findPathButton.clicked.connect(self.plot_path)
         self.clearButton.clicked.connect(self.ClearMap)
 
         self.view = QtWebEngineWidgets.QWebEngineView()
@@ -83,13 +84,12 @@ class Window(QtWidgets.QMainWindow):
 
         Geocoder().add_to(self.m)
 
-
         data = io.BytesIO()
         self.m.save(data, close_file=False)
         self.view.setHtml(data.getvalue().decode())
 
     def AddStartButtonClicked(self):
-        if(Window.startMarkerCount==1):
+        if (Window.startMarkerCount == 1):
             msgBox = QtWidgets.QMessageBox()
             msgBox.setIcon(QtWidgets.QMessageBox.Warning)
             msgBox.setText("You can have only one starting point!\nUse Clear map button to be able to add a new point.")
@@ -105,7 +105,7 @@ class Window(QtWidgets.QMainWindow):
         self.UpdateMap(lat, lon, "blue", "fa-rocket", "Starting point!")
 
     def AddDestButtonClicked(self):
-        if Window.destMarkerCount==1:
+        if Window.destMarkerCount == 1:
             msgBox = QtWidgets.QMessageBox()
             msgBox.setIcon(QtWidgets.QMessageBox.Warning)
             msgBox.setText("You can have only one destination!\nUse Clear map button to be able to add a new point.")
@@ -146,7 +146,7 @@ class Window(QtWidgets.QMainWindow):
                 separator=" | ",
                 empty_string="NaN",
                 num_digits=7,
-                prefix="Coordinates:",
+                prefix="Coordinates:"
             ).add_to(self.m)
 
             Geocoder().add_to(self.m)
@@ -160,21 +160,26 @@ class Window(QtWidgets.QMainWindow):
             Window.startPoint = []
             Window.destinationPoint = []
 
+    def plot_path(self):
+        self.Graph = MyDijkstra.PrepareMinimalGraph(Window.startPoint, Window.destinationPoint)
+        origin_node = ox.nearest_nodes(self.Graph, Window.startPoint[1], Window.startPoint[0])
+        print(origin_node)
+        destination_node = ox.nearest_nodes(self.Graph, Window.destinationPoint[1], Window.destinationPoint[0])
+        print(destination_node)
+        route = nx.shortest_path(self.Graph, origin_node, destination_node, weight="length")
+        ox.plot_route_folium(self.Graph, route,
+                             route_map=self.m,
+                             popup_attribute="name",
+                             tiles="OpenStreetMap",
+                             zoom=13
+                             )
+        data = io.BytesIO()
+        self.m.save(data, close_file=False)
+        self.view.setHtml(data.getvalue().decode())
 
-    def get_graph(self):
-        MyDijkstra.PrepareMinimalGraph(Window.startPoint, Window.destinationPoint)
 
 if __name__ == "__main__":
     App = QtWidgets.QApplication(sys.argv)
     window = Window()
     window.show()
     sys.exit(App.exec())
-
-
-
-
-
-
-
-
-
