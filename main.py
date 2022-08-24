@@ -6,6 +6,7 @@ from folium.plugins import MousePosition, Geocoder
 import io
 import sys
 from PyQt5 import QtWebEngineWidgets, QtWidgets
+import MyDijkstra
 
 class Window(QtWidgets.QMainWindow):
     startMarkerCount = 0
@@ -157,49 +158,11 @@ class Window(QtWidgets.QMainWindow):
             Window.startMarkerCount = 0
             Window.destMarkerCount = 0
             Window.startPoint = []
-            Window.estinationPoint = []
+            Window.destinationPoint = []
 
 
     def get_graph(self):
-        if(Window.startPoint[0] > Window.destinationPoint[0]
-                and Window.startPoint[1] > Window.destinationPoint[1]):
-            myG = ox.graph_from_bbox(
-                Window.startPoint[0], Window.destinationPoint[0],
-                Window.startPoint[1], Window.destinationPoint[1],
-                network_type="drive",
-                truncate_by_edge=True,
-                clean_periphery=False
-            )
-            ox.plot_graph(myG)
-        elif(Window.startPoint[0] > Window.destinationPoint[0]
-                and Window.startPoint[1] < Window.destinationPoint[1]):
-            myG = ox.graph_from_bbox(
-                Window.startPoint[0], Window.destinationPoint[0],
-                Window.destinationPoint[1], Window.startPoint[1],
-                network_type="drive",
-                truncate_by_edge=True,
-                clean_periphery=False
-            )
-            ox.plot_graph(myG)
-        elif(Window.startPoint[0] < Window.destinationPoint[0]
-                and Window.startPoint[1] > Window.destinationPoint[1]):
-            myG = ox.graph_from_bbox(
-                Window.destinationPoint[0], Window.startPoint[0],
-                Window.startPoint[1], Window.destinationPoint[1],
-                network_type="all",
-                truncate_by_edge=True,
-                clean_periphery=False
-            )
-            ox.plot_graph(myG)
-        else:
-            myG = ox.graph_from_bbox(
-                Window.destinationPoint[0], Window.startPoint[0],
-                Window.destinationPoint[1], Window.startPoint[1],
-                network_type="all",
-                truncate_by_edge=True,
-                clean_periphery=False
-            )
-            ox.plot_graph(myG)
+        MyDijkstra.PrepareMinimalGraph(Window.startPoint, Window.destinationPoint)
 
 if __name__ == "__main__":
     App = QtWidgets.QApplication(sys.argv)
