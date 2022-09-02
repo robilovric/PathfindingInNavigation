@@ -89,7 +89,7 @@ class Window(QtWidgets.QMainWindow):
         self.view.setHtml(data.getvalue().decode())
 
     def AddStartButtonClicked(self):
-        if (Window.startMarkerCount == 1):
+        if Window.startMarkerCount == 1:
             msgBox = QtWidgets.QMessageBox()
             msgBox.setIcon(QtWidgets.QMessageBox.Warning)
             msgBox.setText("You can have only one starting point!\nUse Clear map button to be able to add a new point.")
@@ -162,17 +162,23 @@ class Window(QtWidgets.QMainWindow):
 
     def plot_path(self):
         self.Graph = MyDijkstra.PrepareMinimalGraph(Window.startPoint, Window.destinationPoint)
-        origin_node = ox.nearest_nodes(self.Graph, Window.startPoint[1], Window.startPoint[0])
-        print(origin_node)
-        destination_node = ox.nearest_nodes(self.Graph, Window.destinationPoint[1], Window.destinationPoint[0])
-        print(destination_node)
-        route = nx.shortest_path(self.Graph, origin_node, destination_node, weight="length")
-        ox.plot_route_folium(self.Graph, route,
+        originNode = ox.nearest_nodes(self.Graph, Window.startPoint[1], Window.startPoint[0])
+        destinationNode = ox.nearest_nodes(self.Graph, Window.destinationPoint[1], Window.destinationPoint[0])
+        ox.add_edge_speeds(self.Graph)
+        ox.add_edge_travel_times(self.Graph)
+        #route = nx.shortest_path(self.Graph, origin_node, destination_node, weight="length")
+        shortestRoute = MyDijkstra.Dijkstra(self.Graph, originNode, destinationNode)
+        fastestRoute = MyDijkstra.Dijkstra(self.Graph, originNode, destinationNode, mode="travel_time")
+        ox.plot_route_folium(self.Graph, shortestRoute,
                              route_map=self.m,
                              popup_attribute="name",
                              tiles="OpenStreetMap",
                              zoom=13
                              )
+        ox.plot_route_folium(self.Graph, fastestRoute,
+                             route_map=self.m,
+                             tiles="OpenStreetMap",
+                             zoom=13, color="red")
         data = io.BytesIO()
         self.m.save(data, close_file=False)
         self.view.setHtml(data.getvalue().decode())
