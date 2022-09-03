@@ -42,7 +42,7 @@ def PrepareMinimalGraph(startPoint, destinationPoint):
 
     return myG
 
-def Dijkstra(G, startNode, endNode,mode="length"):
+def Dijkstra(G, startNode, endNode, mode="length"):
     previous = {nodes: None for nodes in list(G)}
     cost = {nodes: inf for nodes in list(G)}
     cost[startNode] = 0
