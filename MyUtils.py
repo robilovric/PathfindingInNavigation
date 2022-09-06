@@ -1,5 +1,3 @@
-import sys
-import osmnx as ox
 from PyQt5.QtWidgets import *
 
 class Dialog(QDialog):
@@ -15,14 +13,16 @@ class Dialog(QDialog):
         self.show()
 
 
-def createTable(G, route):
+def createTable(G, route, nodesVsited):
     tableWidget = QTableWidget()
-    tableWidget.setColumnCount(4)
-    tableWidget.setHorizontalHeaderLabels(["Action", "Street name", "Length [m]", "Travel time [s]"])
-    params = ["name", "length", "travel_time"]
+    tableWidget.setColumnCount(5)
+    tableWidget.setHorizontalHeaderLabels(["Action", "Street name", "Length [m]",
+                                           "Travel time [s]", "Speed limit [km/h]"])
+    params = ["name", "length", "travel_time", "speed_kph"]
     row = 0
     totalDistance = 0
     totalTime = 0
+
     for i in range(len(route)-1):
         tableWidget.insertRow(row)
         tableWidget.setItem(row, 0, QTableWidgetItem("Stay on"))
@@ -40,19 +40,26 @@ def createTable(G, route):
             except KeyError:
                 tableWidget.setItem(row, 0, QTableWidgetItem("Turn accordingly"))
                 temp = G[route[i]][route[i + 1]][0]["highway"]
-                tableWidget.setItem(row, 1, QTableWidgetItem(temp))
+                tableWidget.setItem(row, 1, QTableWidgetItem("Turn type: " + temp))
                 col += 1
                 continue
         row += 1
     tableWidget.insertRow(row)
-    tableWidget.setItem(row, 0, QTableWidgetItem("DESTINATION REACHED"))
-    tableWidget.setItem(row, 1, QTableWidgetItem("TOTAL"))
+    tableWidget.setItem(row, 0, QTableWidgetItem("DESTINATION REACHED!"))
+    tableWidget.setItem(row, 1, QTableWidgetItem("TOTAL:"))
     totalDistance /= 1000
     totalDistance = round(totalDistance, 2)
     tableWidget.setItem(row, 2, QTableWidgetItem(str(totalDistance) + " km"))
-    totalTime /= 60
-    totalTime = round(totalTime, 2)
-    tableWidget.setItem(row, 3, QTableWidgetItem(str(totalTime) + " min"))
+    min, s = divmod(totalTime, 60)
+    h, min = divmod(min, 60)
+    if h == 0:
+        tableWidget.setItem(row, 3, QTableWidgetItem(f"{min:.0f} min {s:.0f} s"))
+    else:
+        tableWidget.setItem(row, 3, QTableWidgetItem(f"{h:.0f} h {min:.0f} min {s:.0f} s"))
+    row += 1
+    tableWidget.insertRow(row)
+    tableWidget.setItem(row, 1, QTableWidgetItem("NODES VISITED:"))
+    tableWidget.setItem(row, 2, QTableWidgetItem(str(nodesVsited)))
 
     tableWidget.horizontalHeader().setStretchLastSection(True)
     tableWidget.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -76,9 +83,9 @@ def ValidateData(lat, lon):
             return False
     return False
 
-def GetStats(G, route, shortest=True):
+def GetStats(G, route, nodesVisited, shortest=True):
     dlg = Dialog()
-    table = createTable(G, route)
+    table = createTable(G, route, nodesVisited)
     dlg.layout.addWidget(table)
     if shortest:
         dlg.title = "Shortest path statistics"

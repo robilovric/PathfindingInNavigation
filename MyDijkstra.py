@@ -1,5 +1,4 @@
 import osmnx as ox
-import networkx as nx
 from math import inf
 import heapq
 
@@ -68,7 +67,7 @@ def Dijkstra(G, startNode, endNode, mode="length"):
                 temp = previous[temp]
 
             optimalPath.reverse()
-            return optimalPath
+            return optimalPath, len(visitedNodes)
 
 
 

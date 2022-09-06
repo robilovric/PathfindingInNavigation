@@ -1,20 +1,14 @@
-import osmnx as ox
-import networkx as nx
-import geopandas
-import folium
-from folium.plugins import MousePosition, Geocoder
-import io
-import sys
 from PyQt5 import QtWebEngineWidgets, QtWidgets
+from folium.plugins import MousePosition, Geocoder
+import folium
+import osmnx as ox
 import MyDijkstra
 import MyUtils
+import io
+import sys
 
 
 class Window(QtWidgets.QMainWindow):
-    startMarkerCount = 0
-    destMarkerCount = 0
-    startPoint = []
-    destinationPoint = []
 
     def __init__(self):
         super().__init__()
@@ -40,18 +34,26 @@ class Window(QtWidgets.QMainWindow):
         self.findPathButton.setEnabled(False)
         self.clearButton = QtWidgets.QPushButton(self.tr("Clear map"))
         self.clearButton.setEnabled(False)
-        self.pathStatsBtn = QtWidgets.QPushButton(self.tr("Path statistics"))
-        self.pathStatsBtn.setEnabled(False)
+        self.pathFastestStatsBtn = QtWidgets.QPushButton(self.tr("Fastest path statistics"))
+        self.pathFastestStatsBtn.setEnabled(False)
+        self.pathShortestStatsBtn = QtWidgets.QPushButton(self.tr("Shortest path statistics"))
+        self.pathShortestStatsBtn.setEnabled(False)
 
         self.addStartMarkerBtn.clicked.connect(self.AddStartButtonClicked)
         self.addDestMarkerBtn.clicked.connect(self.AddDestButtonClicked)
-        self.findPathButton.clicked.connect(self.plot_path)
-        self.pathStatsBtn.clicked.connect(self.GetStatistics)
+        self.findPathButton.clicked.connect(self.PlotPath)
+        self.pathFastestStatsBtn.clicked.connect(self.GetStatisticFast)
+        self.pathShortestStatsBtn.clicked.connect(self.GetStatisticsShort)
         self.clearButton.clicked.connect(self.ClearMap)
 
         self.view = QtWebEngineWidgets.QWebEngineView()
         self.view.setContentsMargins(5, 5, 5, 5)
 
+        self.PopulateLayout()
+        self.ArrangeMap()
+        return
+
+    def PopulateLayout(self):
         centralWidget = QtWidgets.QWidget()
         self.setCentralWidget(centralWidget)
         mainLayout = QtWidgets.QHBoxLayout(centralWidget)
@@ -68,14 +70,14 @@ class Window(QtWidgets.QMainWindow):
         gridLayout.addWidget(self.destLonLabel, 4, 0)
         gridLayout.addWidget(self.destLonEdit, 4, 1)
         gridLayout.addWidget(self.addDestMarkerBtn, 5, 0, 1, 2)
-        gridLayout.addWidget(self.findPathButton, 6, 0, 1, 2)
-        gridLayout.addWidget(self.pathStatsBtn,7, 0, 1, 2)
-        gridLayout.addWidget(self.clearButton, 8, 0, 1, 2)
+        gridLayout.addWidget(self.findPathButton, 7, 0, 1, 2)
+        gridLayout.addWidget(self.pathShortestStatsBtn, 8, 0, 1, 2)
+        gridLayout.addWidget(self.pathFastestStatsBtn, 9, 0, 1, 2)
+        gridLayout.addWidget(self.clearButton, 10, 0, 1, 2)
         mainLayout.addWidget(controlContainer)
         mainLayout.addWidget(self.view, stretch=1)
-
-        self.ArrangeMap()
         return
+
     def ArrangeMap(self, zoom=13, lat=43.5347, lon=16.36, clean=False):
         try:
             self.m = folium.Map(
@@ -91,7 +93,6 @@ class Window(QtWidgets.QMainWindow):
             )
 
         self.m.add_child(folium.LatLngPopup())
-
         MousePosition(
             position="bottomleft",
             separator=" | ",
@@ -99,7 +100,6 @@ class Window(QtWidgets.QMainWindow):
             num_digits=7,
             prefix="Coordinates:",
         ).add_to(self.m)
-
         Geocoder().add_to(self.m)
 
         data = io.BytesIO()
@@ -108,9 +108,10 @@ class Window(QtWidgets.QMainWindow):
         if clean:
             Window.startMarkerCount = 0
             Window.destMarkerCount = 0
+            Window.nodesVisitedFastest = 0
+            Window.nodesVisitedShortest = 0
             Window.startPoint = []
             Window.destinationPoint = []
-
 
     def LaunchMsgBox(self, title, text, severityHigh=False):
         msgBox = QtWidgets.QMessageBox()
@@ -187,21 +188,24 @@ class Window(QtWidgets.QMainWindow):
                         Window.startPoint[1],
                         clean=True)
         self.findPathButton.setEnabled(False)
-        self.pathStatsBtn.setEnabled(False)
+        self.pathFastestStatsBtn.setEnabled(False)
+        self.pathShortestStatsBtn.setEnabled(False)
         self.clearButton.setEnabled(False)
 
-
-    def plot_path(self):
+    def PrepareAlgorithmParameters(self):
         self.Graph = MyDijkstra.PrepareMinimalGraph(Window.startPoint, Window.destinationPoint)
 
-        originNode = ox.nearest_nodes(self.Graph, Window.startPoint[1], Window.startPoint[0])
-        destinationNode = ox.nearest_nodes(self.Graph, Window.destinationPoint[1], Window.destinationPoint[0])
+        self.originNode = ox.nearest_nodes(self.Graph, Window.startPoint[1], Window.startPoint[0])
+        self.destinationNode = ox.nearest_nodes(self.Graph, Window.destinationPoint[1], Window.destinationPoint[0])
 
         ox.add_edge_speeds(self.Graph)
         ox.add_edge_travel_times(self.Graph)
 
-        self.shortestRoute = MyDijkstra.Dijkstra(self.Graph, originNode, destinationNode)
-        self.fastestRoute = MyDijkstra.Dijkstra(self.Graph, originNode, destinationNode, mode="travel_time")
+    def PlotPath(self):
+        self.PrepareAlgorithmParameters()
+        self.shortestRoute, Window.nodesVisitedShortest = MyDijkstra.Dijkstra(self.Graph, self.originNode, self.destinationNode)
+        self.fastestRoute, Window.nodesVisitedFastest = MyDijkstra.Dijkstra(self.Graph, self.originNode,
+                                                                            self.destinationNode, mode="travel_time")
         ox.plot_route_folium(self.Graph, self.shortestRoute,
                              route_map=self.m,
                              popup_attribute="name",
@@ -215,11 +219,22 @@ class Window(QtWidgets.QMainWindow):
         data = io.BytesIO()
         self.m.save(data, close_file=False)
         self.view.setHtml(data.getvalue().decode())
-        self.pathStatsBtn.setEnabled(True)
+        self.pathFastestStatsBtn.setEnabled(True)
+        self.pathShortestStatsBtn.setEnabled(True)
+        self.statusBar().showMessage("Path visualised!")
 
-    def GetStatistics(self):
-        MyUtils.GetStats(self.Graph, self.shortestRoute)
-        MyUtils.GetStats(self.Graph, self.fastestRoute, shortest=False)
+    def GetStatisticsShort(self):
+        MyUtils.GetStats(self.Graph, self.shortestRoute, Window.nodesVisitedShortest)
+
+    def GetStatisticFast(self):
+        MyUtils.GetStats(self.Graph, self.fastestRoute, Window.nodesVisitedFastest, shortest=False)
+
+    startMarkerCount = 0
+    destMarkerCount = 0
+    nodesVisitedFastest = 0
+    nodesVisitedShortest = 0
+    startPoint = []
+    destinationPoint = []
 
 
 if __name__ == "__main__":
